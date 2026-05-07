@@ -80,26 +80,37 @@ NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
 
 	switch (controlCode) {
 	case IOCTL_READ_MEMORY: {
-		if (inSize < sizeof(READ_WRITE_REQUEST)) {
+		if (inSize < sizeof(READ_REQUEST) || outSize < sizeof(READ_REQUEST)) {
 			status = STATUS_BUFFER_TOO_SMALL;
 			break;
 		}
 
-		PREAD_WRITE_REQUEST req = (PREAD_WRITE_REQUEST)buffer;
-		status = ReadProcessMemory(req->ProcessId, req->Address, req->Buffer, req->Size);
-		if (NT_SUCCESS(status)) {
-			bytesReturned = sizeof(READ_WRITE_REQUEST);
+		PREAD_REQUEST req = (PREAD_REQUEST)buffer;
+
+		if (req->Size == 0 || req->Size > sizeof(req->Data)) {
+			status = STATUS_INVALID_PARAMETER;
+			break;
 		}
+
+		status = ReadProcessMemory(req->ProcessId, req->Address, req->Data, req->Size);
+		if (NT_SUCCESS(status))
+			bytesReturned = sizeof(READ_REQUEST);
 		break;
 	}
 
 	case IOCTL_WRITE_MEMORY: {
-		if (inSize < sizeof(READ_WRITE_REQUEST)) {
+		if (inSize < sizeof(WRITE_REQUEST)) {
 			status = STATUS_BUFFER_TOO_SMALL;
 			break;
 		}
 
-		PREAD_WRITE_REQUEST req = (PREAD_WRITE_REQUEST)buffer;
+		PWRITE_REQUEST req = (PWRITE_REQUEST)buffer;
+
+		if (req->Size == 0 || inSize < sizeof(WRITE_REQUEST) + req->Size - 1) {
+			status = STATUS_INVALID_PARAMETER;
+			break;
+		}
+
 		status = WriteProcessMemory(req->ProcessId, req->Address, req->Buffer, req->Size);
 		break;
 	}

@@ -51,12 +51,19 @@ NTKERNELAPI NTSTATUS ZwQuerySystemInformation(
 #define IOCTL_GET_PROCESS  CTL_CODE(FILE_DEVICE_UNKNOWN, IOCTL_BASE + 0x3, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 // Request structures
-typedef struct _READ_WRITE_REQUEST {
+typedef struct _READ_REQUEST {
 	ULONG ProcessId;
 	PVOID Address;
-	PVOID Buffer;
 	SIZE_T Size;
-} READ_WRITE_REQUEST, * PREAD_WRITE_REQUEST;
+	BYTE Data[4096]; // max read size, adjust as needed
+} READ_REQUEST, * PREAD_REQUEST;
+
+typedef struct _WRITE_REQUEST {
+	ULONG ProcessId;
+	PVOID Address;
+	SIZE_T Size;
+	BYTE Buffer[1]; // variable length, data follows the struct
+} WRITE_REQUEST, * PWRITE_REQUEST;
 
 typedef struct _PROCESS_REQUEST {
 	WCHAR ProcessName[260];

@@ -1,5 +1,7 @@
 #include "driver.h"
 
+#define MAX_RW_SIZE 0x1000000 // 16MB cap, sanity check
+
 // Attach to target process
 NTSTATUS AttachToProcess(ULONG ProcessId, PEPROCESS* Process) {
 	NTSTATUS status = PsLookupProcessByProcessId((HANDLE)ProcessId, Process);
@@ -12,7 +14,8 @@ NTSTATUS AttachToProcess(ULONG ProcessId, PEPROCESS* Process) {
 
 // Read memory from target process
 NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
-	if (!Address || !Buffer || Size == 0) {
+	if (!Address || !Buffer || Size == 0 || Size > MAX_RW_SIZE)
+	{
 		return STATUS_INVALID_PARAMETER;
 	}
 
