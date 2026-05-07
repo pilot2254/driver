@@ -1,8 +1,8 @@
 #include "driver.h"
 
-#define MAX_RW_SIZE 0x1000000 // 16MB cap, sanity check
+#define MAX_RW_SIZE 0x1000000 //16mb cap, sanity check
 
-// Attach to target process
+//attach to target process
 NTSTATUS AttachToProcess(ULONG ProcessId, PEPROCESS* Process) {
 	NTSTATUS status = PsLookupProcessByProcessId((HANDLE)ProcessId, Process);
 	if (!NT_SUCCESS(status)) {
@@ -12,7 +12,7 @@ NTSTATUS AttachToProcess(ULONG ProcessId, PEPROCESS* Process) {
 	return STATUS_SUCCESS;
 }
 
-// Read memory from target process
+//read memory from target process
 NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
 	if (!Address || !Buffer || Size == 0 || Size > MAX_RW_SIZE)
 	{
@@ -25,11 +25,11 @@ NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T 
 		return status;
 	}
 
-	// Attach to process address space
+	//attach to process address space
 	KAPC_STATE apcState;
 	KeStackAttachProcess(process, &apcState);
 
-	// Probe and read
+	//probe and read
 	__try {
 		ProbeForRead(Address, Size, 1);
 		RtlCopyMemory(Buffer, Address, Size);
@@ -46,7 +46,7 @@ NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T 
 	return status;
 }
 
-// Write memory to target process
+//write memory to target process
 NTSTATUS WriteProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
 	if (!Address || !Buffer || Size == 0) {
 		return STATUS_INVALID_PARAMETER;
@@ -77,7 +77,7 @@ NTSTATUS WriteProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T
 	return status;
 }
 
-// Get process ID by name
+//get process id by name
 NTSTATUS GetProcessIdByName(PWCH ProcessName, PULONG ProcessId) {
 	if (!ProcessName || !ProcessId) {
 		return STATUS_INVALID_PARAMETER;
@@ -88,7 +88,7 @@ NTSTATUS GetProcessIdByName(PWCH ProcessName, PULONG ProcessId) {
 	PVOID buffer = NULL;
 	ULONG bufferSize = 0;
 
-	// Query system information
+	//query system information
 	status = ZwQuerySystemInformation(SystemProcessInformation, buffer, bufferSize, &bufferSize);
 	if (status != STATUS_INFO_LENGTH_MISMATCH) {
 		return status;
@@ -107,7 +107,7 @@ NTSTATUS GetProcessIdByName(PWCH ProcessName, PULONG ProcessId) {
 
 	PSYSTEM_PROCESS_INFORMATION processInfo = (PSYSTEM_PROCESS_INFORMATION)buffer;
 
-	// Iterate through processes
+	//iterate through processes
 	while (TRUE) {
 		if (processInfo->ImageName.Buffer != NULL) {
 			if (_wcsicmp(processInfo->ImageName.Buffer, ProcessName) == 0) {

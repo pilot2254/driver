@@ -4,7 +4,7 @@
 #include <ntddk.h>
 #include <windef.h>
 
-// System structures
+//system structures
 typedef struct _SYSTEM_PROCESS_INFORMATION {
 	ULONG NextEntryOffset;
 	ULONG NumberOfThreads;
@@ -44,25 +44,25 @@ NTKERNELAPI NTSTATUS ZwQuerySystemInformation(
 	OUT PULONG ReturnLength OPTIONAL
 );
 
-// IOCTL codes
+//ioctl codes
 #define IOCTL_BASE 0x800
 #define IOCTL_READ_MEMORY  CTL_CODE(FILE_DEVICE_UNKNOWN, IOCTL_BASE + 0x1, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_WRITE_MEMORY CTL_CODE(FILE_DEVICE_UNKNOWN, IOCTL_BASE + 0x2, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_GET_PROCESS  CTL_CODE(FILE_DEVICE_UNKNOWN, IOCTL_BASE + 0x3, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-// Request structures
+//request structures
 typedef struct _READ_REQUEST {
 	ULONG ProcessId;
 	PVOID Address;
 	SIZE_T Size;
-	BYTE Data[4096]; // max read size, adjust as needed
+	BYTE Data[4096]; //max read size- adjust as needed
 } READ_REQUEST, * PREAD_REQUEST;
 
 typedef struct _WRITE_REQUEST {
 	ULONG ProcessId;
 	PVOID Address;
 	SIZE_T Size;
-	BYTE Buffer[1]; // variable length, data follows the struct
+	BYTE Buffer[1]; //variable length, data follows the struct
 } WRITE_REQUEST, * PWRITE_REQUEST;
 
 typedef struct _PROCESS_REQUEST {
@@ -70,13 +70,13 @@ typedef struct _PROCESS_REQUEST {
 	ULONG ProcessId;
 } PROCESS_REQUEST, * PPROCESS_REQUEST;
 
-// Driver functions
+//driver functions
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath);
 VOID DriverUnload(PDRIVER_OBJECT DriverObject);
 NTSTATUS CreateClose(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS IoControl(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
-// Memory operations
+//memory operations
 NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size);
 NTSTATUS WriteProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size);
 NTSTATUS GetProcessIdByName(PWCH ProcessName, PULONG ProcessId);

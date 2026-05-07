@@ -10,7 +10,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 
 	DbgPrint("[driver] Loading...\n");
 
-	// Create device
+	//create device
 	status = IoCreateDevice(
 		DriverObject,
 		0,
@@ -26,7 +26,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 		return status;
 	}
 
-	// Create symbolic link
+	//create symbolic link
 	status = IoCreateSymbolicLink(&symLink, &deviceName);
 	if (!NT_SUCCESS(status)) {
 		DbgPrint("[driver] IoCreateSymbolicLink failed: 0x%X\n", status);

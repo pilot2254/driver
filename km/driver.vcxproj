@@ -116,22 +116,11 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="communication.c" />
     <ClCompile Include="driver.c" />
     <ClCompile Include="memory.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <CopyFileToFolders Include="README.md">
-      <FileType>Document</FileType>
-    </CopyFileToFolders>
-  </ItemGroup>
-  <ItemGroup>
-    <CopyFileToFolders Include="LICENSE">
-      <FileType>Document</FileType>
-    </CopyFileToFolders>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
