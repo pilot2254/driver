@@ -36,5 +36,6 @@
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="README.md" />
+    <CopyFileToFolders Include="LICENSE" />
   </ItemGroup>
 </Project>
