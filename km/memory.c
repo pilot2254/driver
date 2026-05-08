@@ -1,129 +1,33 @@
 #include "driver.h"
 
-#define MAX_RW_SIZE 0x1000000 //16mb cap, sanity check
-
-//attach to target process
-NTSTATUS AttachToProcess(ULONG ProcessId, PEPROCESS* Process) {
-	NTSTATUS status = PsLookupProcessByProcessId((HANDLE)ProcessId, Process);
-	if (!NT_SUCCESS(status)) {
-		DbgPrint("[driver] Failed to find process: %lu\n", ProcessId);
-		return status;
-	}
-	return STATUS_SUCCESS;
-}
-
-//read memory from target process
-NTSTATUS ReadProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
+NTSTATUS KmReadMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
 	if (!Address || !Buffer || Size == 0 || Size > MAX_RW_SIZE)
-	{
 		return STATUS_INVALID_PARAMETER;
-	}
 
 	PEPROCESS process = NULL;
-	NTSTATUS status = AttachToProcess(ProcessId, &process);
-	if (!NT_SUCCESS(status)) {
+	NTSTATUS status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)ProcessId, &process);
+	if (!NT_SUCCESS(status))
 		return status;
-	}
 
-	//attach to process address space
-	KAPC_STATE apcState;
-	KeStackAttachProcess(process, &apcState);
+	SIZE_T bytes = 0;
+	status = MmCopyVirtualMemory(process, Address, PsGetCurrentProcess(), Buffer, Size, KernelMode, &bytes);
 
-	//probe and read
-	__try {
-		ProbeForRead(Address, Size, 1);
-		RtlCopyMemory(Buffer, Address, Size);
-		status = STATUS_SUCCESS;
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER) {
-		status = GetExceptionCode();
-		DbgPrint("[driver] Read exception: 0x%X\n", status);
-	}
-
-	KeUnstackDetachProcess(&apcState);
 	ObDereferenceObject(process);
-
 	return status;
 }
 
-//write memory to target process
-NTSTATUS WriteProcessMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
-	if (!Address || !Buffer || Size == 0) {
+NTSTATUS KmWriteMemory(ULONG ProcessId, PVOID Address, PVOID Buffer, SIZE_T Size) {
+	if (!Address || !Buffer || Size == 0 || Size > MAX_RW_SIZE)
 		return STATUS_INVALID_PARAMETER;
-	}
 
 	PEPROCESS process = NULL;
-	NTSTATUS status = AttachToProcess(ProcessId, &process);
-	if (!NT_SUCCESS(status)) {
+	NTSTATUS status = PsLookupProcessByProcessId((HANDLE)(ULONG_PTR)ProcessId, &process);
+	if (!NT_SUCCESS(status))
 		return status;
-	}
 
-	KAPC_STATE apcState;
-	KeStackAttachProcess(process, &apcState);
+	SIZE_T bytes = 0;
+	status = MmCopyVirtualMemory(PsGetCurrentProcess(), Buffer, process, Address, Size, KernelMode, &bytes);
 
-	__try {
-		ProbeForWrite(Address, Size, 1);
-		RtlCopyMemory(Address, Buffer, Size);
-		status = STATUS_SUCCESS;
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER) {
-		status = GetExceptionCode();
-		DbgPrint("[driver] Write exception: 0x%X\n", status);
-	}
-
-	KeUnstackDetachProcess(&apcState);
 	ObDereferenceObject(process);
-
-	return status;
-}
-
-//get process id by name
-NTSTATUS GetProcessIdByName(PWCH ProcessName, PULONG ProcessId) {
-	if (!ProcessName || !ProcessId) {
-		return STATUS_INVALID_PARAMETER;
-	}
-
-	*ProcessId = 0;
-	NTSTATUS status = STATUS_NOT_FOUND;
-	PVOID buffer = NULL;
-	ULONG bufferSize = 0;
-
-	//query system information
-	status = ZwQuerySystemInformation(SystemProcessInformation, buffer, bufferSize, &bufferSize);
-	if (status != STATUS_INFO_LENGTH_MISMATCH) {
-		return status;
-	}
-
-	buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, bufferSize, 'prcS');
-	if (!buffer) {
-		return STATUS_INSUFFICIENT_RESOURCES;
-	}
-
-	status = ZwQuerySystemInformation(SystemProcessInformation, buffer, bufferSize, &bufferSize);
-	if (!NT_SUCCESS(status)) {
-		ExFreePoolWithTag(buffer, 'prcS');
-		return status;
-	}
-
-	PSYSTEM_PROCESS_INFORMATION processInfo = (PSYSTEM_PROCESS_INFORMATION)buffer;
-
-	//iterate through processes
-	while (TRUE) {
-		if (processInfo->ImageName.Buffer != NULL) {
-			if (_wcsicmp(processInfo->ImageName.Buffer, ProcessName) == 0) {
-				*ProcessId = (ULONG)(ULONG_PTR)processInfo->UniqueProcessId;
-				status = STATUS_SUCCESS;
-				break;
-			}
-		}
-
-		if (processInfo->NextEntryOffset == 0) {
-			break;
-		}
-
-		processInfo = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)processInfo + processInfo->NextEntryOffset);
-	}
-
-	ExFreePoolWithTag(buffer, 'prcS');
 	return status;
 }

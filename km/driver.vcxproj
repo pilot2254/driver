@@ -116,12 +116,14 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="communication.c" />
+    <ClCompile Include="comm.c" />
     <ClCompile Include="driver.c" />
     <ClCompile Include="memory.c" />
+    <ClCompile Include="process.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h" />
+    <ClInclude Include="shared.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
