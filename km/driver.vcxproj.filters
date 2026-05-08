@@ -25,6 +25,9 @@
     <ClCompile Include="memory.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="communication.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driver.h">

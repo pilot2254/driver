@@ -116,6 +116,7 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="communication.c" />
     <ClCompile Include="driver.c" />
     <ClCompile Include="memory.c" />
   </ItemGroup>
