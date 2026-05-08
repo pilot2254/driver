@@ -59,11 +59,11 @@ static PVOID GetKernelExport(PVOID base, const char* name) {
 
 // get win32k.sys base from loaded module list
 static PVOID GetWin32kBase() {
-	PLIST_ENTRY head = PsLoadedModuleList;
+	PLIST_ENTRY head = &PsLoadedModuleList;
 	if (!head) return NULL;
 
 	for (PLIST_ENTRY entry = head->Flink; entry != head; entry = entry->Flink) {
-		PLDR_DATA_TABLE_ENTRY mod = CONTAINING_RECORD(entry, LDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
+		PKLDR_DATA_TABLE_ENTRY mod = CONTAINING_RECORD(entry, KLDR_DATA_TABLE_ENTRY, InLoadOrderLinks);
 		if (mod->BaseDllName.Buffer &&
 			_wcsicmp(mod->BaseDllName.Buffer, L"win32kbase.sys") == 0) {
 			return mod->DllBase;

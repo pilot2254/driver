@@ -7,7 +7,6 @@ NTSTATUS KmGetProcessByName(PWCH Name, PULONG OutPid) {
 	*OutPid = 0;
 	ULONG bufSize = 0;
 
-	// first call to get required size
 	NTSTATUS status = ZwQuerySystemInformation(SystemProcessInformation, NULL, 0, &bufSize);
 	if (status != STATUS_INFO_LENGTH_MISMATCH)
 		return status;
@@ -31,10 +30,7 @@ NTSTATUS KmGetProcessByName(PWCH Name, PULONG OutPid) {
 			status = STATUS_SUCCESS;
 			break;
 		}
-
-		if (entry->NextEntryOffset == 0)
-			break;
-
+		if (entry->NextEntryOffset == 0) break;
 		entry = (PSYSTEM_PROCESS_INFORMATION)((PUCHAR)entry + entry->NextEntryOffset);
 	}
 
@@ -53,11 +49,22 @@ NTSTATUS KmGetModuleBase(ULONG ProcessId, PCHAR ModuleName, PULONG64 OutBase) {
 	if (!NT_SUCCESS(status))
 		return status;
 
+	ANSI_STRING ansi;
+	UNICODE_STRING target;
+	RtlInitAnsiString(&ansi, ModuleName);
+	status = RtlAnsiStringToUnicodeString(&target, &ansi, TRUE);
+	if (!NT_SUCCESS(status)) {
+		ObDereferenceObject(process);
+		return status;
+	}
+
 	KAPC_STATE apc;
 	KeStackAttachProcess(process, &apc);
 
+	status = STATUS_NOT_FOUND;
+
 	__try {
-		PPEB peb = PsGetProcessPeb(process);
+		PMY_PEB peb = (PMY_PEB)__readgsqword(0x60);
 		if (!peb || !peb->Ldr) {
 			status = STATUS_NOT_FOUND;
 			__leave;
@@ -67,47 +74,34 @@ NTSTATUS KmGetModuleBase(ULONG ProcessId, PCHAR ModuleName, PULONG64 OutBase) {
 		PLIST_ENTRY curr = head->Flink;
 
 		while (curr != head) {
-			PLDR_DATA_TABLE_ENTRY mod = CONTAINING_RECORD(curr, LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
+			PLDR_MODULE mod = CONTAINING_RECORD(curr, LDR_MODULE, InMemoryOrderModuleList);
 
 			if (mod->FullDllName.Buffer) {
-				// convert module name to compare (find just the filename part)
-				UNICODE_STRING target;
-				ANSI_STRING ansiTarget;
-				RtlInitAnsiString(&ansiTarget, ModuleName);
-				status = RtlAnsiStringToUnicodeString(&target, &ansiTarget, TRUE);
-
-				if (NT_SUCCESS(status)) {
-					// get just the filename from full path
-					UNICODE_STRING fileName = mod->FullDllName;
-					for (int i = fileName.Length / 2 - 1; i >= 0; i--) {
-						if (fileName.Buffer[i] == L'\\') {
-							fileName.Buffer = &fileName.Buffer[i + 1];
-							fileName.Length -= (USHORT)((i + 1) * 2);
-							break;
-						}
+				UNICODE_STRING fileName = mod->FullDllName;
+				for (int i = fileName.Length / 2 - 1; i >= 0; i--) {
+					if (fileName.Buffer[i] == L'\\') {
+						fileName.Buffer = &fileName.Buffer[i + 1];
+						fileName.Length -= (USHORT)((i + 1) * sizeof(WCHAR));
+						break;
 					}
+				}
 
-					if (RtlEqualUnicodeString(&fileName, &target, TRUE)) {
-						*OutBase = (ULONG64)mod->DllBase;
-						RtlFreeUnicodeString(&target);
-						status = STATUS_SUCCESS;
-						__leave;
-					}
-
-					RtlFreeUnicodeString(&target);
+				if (RtlEqualUnicodeString(&fileName, &target, TRUE)) {
+					*OutBase = (ULONG64)mod->DllBase;
+					status = STATUS_SUCCESS;
+					__leave;
 				}
 			}
 
 			curr = curr->Flink;
 		}
-
-		status = STATUS_NOT_FOUND;
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {
 		status = GetExceptionCode();
 	}
 
 	KeUnstackDetachProcess(&apc);
+	RtlFreeUnicodeString(&target);
 	ObDereferenceObject(process);
 	return status;
 }
