@@ -1,76 +1,101 @@
-> [!CAUTION]
-> doesnt work
+# kdriver
 
-# my kernel driver
+kernel driver loaded through [kdmapper](https://github.com/TheCruZ/kdmapper)
 
-im NOT responsible for what u do with this. u fuck up ur pc or get banned thats on u.<br />
-built while learning windows kernel and low level c
+gives a usermode client basic kernel comms for:
 
-## what it is
+- reading memory
+- writing memory
+- finding processes
+- getting module bases
 
-simple kernel driver that reads and writes memory of any process.<br />
-my own learning project. and definitely not beginner friendly. if u need hand holding dont touch this.
+no device object
+no IOCTLs
+just a cursed hook in `win32kbase.sys`
 
-## does
+> [!WARNING]
+> this is mostly research code rn. not stealthy. not safe. not production ready. run it in a VM
 
-- read process memory
-- write process memory
-- get process by name
-- ring 0 access
-- works with [kdmapper](https://github.com/TheCruZ/kdmapper)
+# how it works
 
-## needs
+## communication
 
-- windows 10 or 11
-- visual studio 2022
-- wdk
-- kdmapper
-- vm. dont be dumb and run this on ur main box
+instead of exposing a device and talking through IOCTLs like normal people do, this thing hijacks `NtUserGetAsyncKeyState` and uses it as a syscall bridge between UM and KM.
 
-## build
+flow looks like this:
 
-1. open driver.sln
-2. release x64  (release is recommended)
-3. build
-4. driver.sys ends up in x64 release
+1. driver patches `NtUserGetAsyncKeyState` with a 14 byte trampoline (`mov rax + jmp rax`)
+2. patch gets written through MDL remapping so write protection doesnt matter
+3. usermode grabs the `g_Request` pointer from DebugView output
+4. UM writes a `COMM_REQUEST*` into the slot
+5. UM calls `NtUserGetAsyncKeyState(COMM_MAGIC)` through `win32u.dll`
+6. hook catches it, processes request, clears slot
+7. UM waits until slot becomes `NULL`
+8. result gets read from `req.Status`
 
-## usage in vm
+so yh this isnt "using" win32kbase. its literally patching live kernel code.
 
-1. move driver.sys and kdmapper.exe to vm
-2. run as admin
+# supported ops
+
+| op                | description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `OP_READ_MEMORY`  | reads target memory with `MmCopyVirtualMemory`            |
+| `OP_WRITE_MEMORY` | writes target memory with `MmCopyVirtualMemory`           |
+| `OP_GET_PROCESS`  | scans process list using `ZwQuerySystemInformation`       |
+| `OP_GET_MODULE`   | walks target PEB loader list after `KeStackAttachProcess` |
+
+# building
+
+open `driver.sln` in visual studio with WDK installed.
+
+targets:
+- `km` -> x64 kernel driver
+- `um` -> x64 usermode client
+
+signed driver not needed if loading through kdmapper.
+
+# usage
+
+1. run DebugView as admin with kernel capture enabled
+2. map driver with kdmapper
+
+3. look in debugview for:
+
 ```
-kdmapper.exe driver.sys //or you can just simply drag the driver into kdmapper
-```
-3. talk to it using the client app
-
-## layout
-
-```
-driver/
-├── driver.c          main entry + ioctl
-├── driver.h          structs & defs
-├── memory.c          read write logic
-└── communication.c   future stuff
+[km] request slot at 0xFFFF...
 ```
 
-## ioctls
+4. paste that address into `um/main.cpp`
+5. rebuild client
+6. run it
 
-- `IOCTL_READ_MEMORY`
-- `IOCTL_WRITE_MEMORY`
-- `IOCTL_GET_PROCESS`
+current test just grabs `notepad.exe`, resolves base address, reads MZ header.
 
-names say it all
+# current state
 
-## notes
+still broken in multiple ways.
 
-- buggy drivers = bsod
-- test in vm only
-- misuse can flag anticheats
-- educational. nothing more
+current behavior:
 
-## contact
+- driver maps fine
+- no instant BSOD
+- after a few minutes windows slowly dies
+- keyboard shortcuts stop responding
+- system hangs
+- reboot sometimes triggers multiple BSODs before stabilizing again
 
-discord: @michal.flaska
+probably caused by one or more of these:
 
-## Support me
-- **BTC:** `bc1qr8x3k39mn7sz2l9kyk8j8293xf5spm2wsxymh9`
+- hook firing in bad contexts
+- deadlocking inside win32k
+- missing proper unload cleanup
+- unsupported MDL flag abuse corrupting memory under pressure
+
+`RemoveHook()` exists but unload isnt wired properly yet.
+
+# known issues
+
+- request slot address still manual
+- no proper shared section between UM and KM
+- current `SendRequest()` implementation is technically fucked because UM writes a userspace pointer into kernel memory directly
+- `COMM_MAGIC` is public (`0xCAFEBABE`) so change it if u actually care
