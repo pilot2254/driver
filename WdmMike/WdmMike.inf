@@ -25,5 +25,5 @@ DefaultDestDir = 13
 [Standard.NT$ARCH$.10.0...16299]
 
 [Strings]
-ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+ManufacturerName="Mike"
 DiskName="WdmMike Source Disk"
